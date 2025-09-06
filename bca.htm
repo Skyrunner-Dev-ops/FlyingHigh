@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <title>Flying Couple</title>
+  <style>
+:root {
+  /* Responsive root font size */
+  font-size: clamp(19px, 2.5vw, 20px);
+}
+
+
+    #message {
+      position: absolute;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(255, 255, 255, 0.8);
+      padding: 10px 20px;
+      border-radius: 8px;
+      font-family: Arial, sans-serif;
+      font-size: 20px;
+      font-weight: bold;
+    }
+
+.credits {
+  position: fixed;
+  bottom: 1rem;
+  right: 1rem;
+  font-family: Open Sans, sans-serif;
+  font-size: 0.9rem; /* Scales with root size */
+  color: #333;
+}
+
+.credits > span {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-top: .5rem;
+}
+  </style>
+
+  <!-- Three.js core -->
+  <script src="https://cdn.jsdelivr.net/npm/three@0.138.0/build/three.min.js"></script>
+  <!-- Orbit Controls -->
+  <script src="https://cdn.jsdelivr.net/npm/three@0.138.0/examples/js/controls/OrbitControls.js"></script>
+  <!-- TweenMax -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/2.1.3/TweenMax.min.js"></script>
+</head>
+
+<body>
+  <div id="message">[Zoom if message looks small] Hey Dear , It has been a long time to see you and have a talk together as we used to do earlier.Just tap here If you miss me too.</div>
+
+
+
+  <script>
+    const internals = {};
+    internals.W = window.innerWidth;
+    internals.H = window.innerHeight;
+    internals.randomIntFromInterval = (min, max) =>
+      Math.floor(Math.random() * (max - min + 1) + min);
+
+    // Materials
+    internals.materials = {
+      orange: new THREE.MeshPhongMaterial({ color: 0xff9933, flatShading: true }),
+      green: new THREE.MeshPhongMaterial({ color: 0x66cc66, flatShading: true }),
+      pink: new THREE.MeshPhongMaterial({ color: 0xff99cc, flatShading: true }),
+      brown: new THREE.MeshPhongMaterial({ color: 0xff99cc, flatShading: true }),
+      gray: new THREE.MeshPhongMaterial({ color: 0xaaaaaa, flatShading: true }),
+      clouds: new THREE.MeshPhongMaterial({ color: 0xffffff, flatShading: true }),
+      rabbit: new THREE.MeshPhongMaterial({ color: 0xdddddd, flatShading: true })
+    };
+
+    internals.shadowSupport = (group) => {
+      group.traverse((object) => {
+        if (object instanceof THREE.Mesh) {
+          object.castShadow = true;
+          object.receiveShadow = true;
+        }
+      });
+    };
+
+    // --- Cloud ---
+    class Cloud {
+      constructor(config) {
+        this.mesh = new THREE.Group();
+        const cloud = this._createCloud();
+        this.mesh.position.x = 200;
+        this.mesh.position.y = config.y || Math.random();
+        this.mesh.position.z = config.z || 0;
+        this.mesh.add(cloud);
+        this.animate(config);
+      }
+      animate(config) {
+        TweenMax.to(this.mesh.position, 3.5, {
+          x: -200,
+          repeat: Infinity,
+          delay: config.delay || 0,
+          onRepeat: () => {
+            this.mesh.position.y = internals.randomIntFromInterval(-10, 20);
+          }
+        });
+      }
+      _createCloud() {
+        const group = new THREE.Group();
+        const cloudGeo = new THREE.SphereGeometry(5, 4, 6);
+        const cloud = new THREE.Mesh(cloudGeo, internals.materials.clouds);
+        cloud.scale.set(1, 0.8, 1);
+        const cloud2 = cloud.clone();
+        cloud2.scale.set(.55, .35, 1);
+        cloud2.position.set(5, -1.5, 2);
+        const cloud3 = cloud.clone();
+        cloud3.scale.set(.75, .5, 1);
+        cloud3.position.set(-5.5, -2, -1);
+        group.add(cloud, cloud2, cloud3);
+        internals.shadowSupport(group);
+        return group;
+      }
+    }
+
+    // --- Carrot Plane ---
+    class Carrot {
+      constructor() {
+        this.mesh = new THREE.Group();
+        this.body = this._createBody();
+        this.wings = this._createWings();
+        this.leafs = this._createLeafs();
+        this.passengers = new Passengers();
+        this.mesh.rotateOnAxis(new THREE.Vector3(1, 0, 0), -Math.PI / 2);
+        this.mesh.rotateOnAxis(new THREE.Vector3(0, 0, 1), Math.PI / 2);
+        this.mesh.add(this.body, this.wings, this.leafs, this.passengers.mesh);
+        this.animate();
+      }
+      animate() {
+        TweenMax.to(this.mesh.position, 1, {
+          x: -2, y: 4, repeat: Infinity, yoyo: true, ease: Sine.easeInOut
+        });
+        TweenMax.to(this.mesh.rotation, 1, {
+          x: -1.7, repeat: Infinity, yoyo: true, ease: Sine.easeInOut
+        });
+        TweenMax.to(this.leafs.rotation, 0.1, {
+          y: Math.PI, repeat: Infinity, ease: Power0.easeNone
+        });
+      }
+      _createBody() {
+        const group = new THREE.Group();
+        const bodyGeom = new THREE.CylinderGeometry(5, 2, 25, 8);
+        group.add(new THREE.Mesh(bodyGeom, internals.materials.rabbit));
+        internals.shadowSupport(group);
+        return group;
+      }
+      _createWings() {
+        const group = new THREE.Group();
+        const geometry = new THREE.BoxGeometry(7, 7, 0.5);
+        const wingR = new THREE.Mesh(geometry, internals.materials.pink);
+        wingR.position.set(6, 2, 1);
+        const wingL = wingR.clone();
+        wingL.position.x = -6;
+        wingL.rotation.y = Math.PI;
+        group.add(wingR, wingL);
+        internals.shadowSupport(group);
+        return group;
+      }
+      _createLeafs() {
+        const group = new THREE.Group();
+        const geometry = new THREE.CylinderGeometry(1.5, 1, 5, 4);
+        const leafA = new THREE.Mesh(geometry, internals.materials.gray);
+        leafA.position.y = 16;
+        const leafB = leafA.clone();
+        leafB.position.set(-1.75, 15, 0);
+        leafB.rotation.z = 0.4;
+        const leafC = leafB.clone();
+        leafC.position.x *= -1;
+        leafC.rotation.z *= -1;
+        group.add(leafA, leafB, leafC);
+        internals.shadowSupport(group);
+        return group;
+      }
+    }
+
+    class Passengers {
+      constructor() {
+        this.mesh = new THREE.Group();
+        const boy = this._createPerson(0x66ccff);
+        const girl = this._createPerson(0xff99cc);
+        boy.position.set(-2, 0, 0);
+        girl.position.set(2, 0, 0);
+        this.mesh.add(boy, girl);
+        this.mesh.position.set(0, 7, 5);
+        this.mesh.rotation.x = Math.PI / 2;
+      }
+      _createPerson(color) {
+        const person = new THREE.Group();
+        const head = new THREE.Mesh(
+          new THREE.BoxGeometry(2, 2, 2),
+          new THREE.MeshPhongMaterial({ color: 0xffe0bd, flatShading: true })
+        );
+        head.position.y = 4;
+        const body = new THREE.Mesh(
+          new THREE.BoxGeometry(2, 3, 1.5),
+          new THREE.MeshPhongMaterial({ color: color, flatShading: true })
+        );
+        body.position.y = 1.5;
+        const legGeo = new THREE.BoxGeometry(0.7, 2, 0.7);
+        const legMat = new THREE.MeshPhongMaterial({ color: 0x444444, flatShading: true });
+        const leg1 = new THREE.Mesh(legGeo, legMat);
+        const leg2 = leg1.clone();
+        leg1.position.set(-0.6, -1, 0);
+        leg2.position.set(0.6, -1, 0);
+        const armGeo = new THREE.BoxGeometry(0.5, 2, 0.5);
+        const armMat = new THREE.MeshPhongMaterial({ color: color, flatShading: true });
+        const arm1 = new THREE.Mesh(armGeo, armMat);
+        const arm2 = arm1.clone();
+        arm1.position.set(-1.5, 2, 0);
+        arm2.position.set(1.5, 2, 0);
+        person.add(head, body, leg1, leg2, arm1, arm2);
+        return person;
+      }
+    }
+
+    // === Scene setup ===
+    internals.renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+    internals.renderer.setPixelRatio(window.devicePixelRatio);
+    internals.renderer.setClearColor(0xc5f5f5, .7);
+    internals.renderer.setSize(internals.W, internals.H);
+    internals.renderer.shadowMap.enabled = true;
+    document.body.appendChild(internals.renderer.domElement);
+
+    internals.camera = new THREE.PerspectiveCamera(45, internals.W / internals.H, 1, 1000);
+    internals.camera.position.set(40, 20, 100);
+
+    internals.scene = new THREE.Scene();
+    internals.scene.fog = new THREE.Fog(0xd5f8f8, 100, 300);
+    internals.scene.add(internals.camera);
+
+    internals.controls = new THREE.OrbitControls(internals.camera, internals.renderer.domElement);
+    internals.controls.minDistance = 50;
+    internals.controls.maxDistance = 250;
+
+    const directional = new THREE.DirectionalLight(0xffffff, 1);
+    directional.position.set(30, 20, 0);
+    directional.castShadow = true;
+    internals.scene.add(new THREE.AmbientLight(0xc5f5f5, 1));
+    internals.scene.add(directional);
+
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(1000, 1000), new THREE.MeshBasicMaterial({ color: 0xe0dacd }));
+    floor.rotation.x = -Math.PI / 2;
+    floor.position.y = -100;
+    internals.scene.add(floor);
+
+    // Clouds only (no plane yet)
+    internals.scene.add(new Cloud({ y: -5, z: 20 }).mesh);
+    internals.scene.add(new Cloud({ y: 0, z: 10, delay: 1 }).mesh);
+    internals.scene.add(new Cloud({ y: 15, z: -10, delay: .5 }).mesh);
+    internals.scene.add(new Cloud({ y: -15, z: 10, delay: 2 }).mesh);
+
+    // Click interaction
+    let clickCount = 0;
+    let carrotPlane = null;
+    document.body.addEventListener("click", () => {
+      clickCount++;
+      const msg = document.getElementById("message");
+      if (clickCount === 1) {
+        msg.innerText = "I really miss you a lot , if you too then should we meet, tap if you agree";
+      } else if (clickCount === 2) {
+        msg.innerText = "So you want too, being with you just feels like I am flying high in skies, If you want to fly too with me then tap gain";
+      } else if (clickCount === 3) {
+        msg.innerText = "";
+        carrotPlane = new Carrot();
+        internals.scene.add(carrotPlane.mesh);
+      }
+    });
+
+    function animate() {
+      requestAnimationFrame(animate);
+      internals.controls.update();
+      internals.renderer.render(internals.scene, internals.camera);
+    }
+    animate();
+
+    window.addEventListener('resize', () => {
+      internals.W = window.innerWidth;
+      internals.H = window.innerHeight;
+      internals.renderer.setSize(internals.W, internals.H);
+      internals.camera.aspect = internals.W / internals.H;
+      internals.camera.updateProjectionMatrix();
+    });
+  </script>
+</body>
+</html>
